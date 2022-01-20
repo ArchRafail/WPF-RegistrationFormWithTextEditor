@@ -27,11 +27,14 @@ namespace WPF_RegistrationFormWithTextEditor
     {
         private CaptchaCode captcha = new CaptchaCode();
 
-        TextRange textRange = null;
+        private TextRange myTextRange = null;
+
+        private TextRange searchRange = null;
 
         public MainWindow()
         {
             InitializeComponent();
+            searchRange = new TextRange(text_TextBlock.ContentStart, text_TextBlock.ContentEnd);
         }
 
         private void CountryBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -249,11 +252,11 @@ namespace WPF_RegistrationFormWithTextEditor
         
         private void startNum_KeyDown(object sender, KeyEventArgs e)
         {
-            if (textRange != null)
-                textRange.ApplyPropertyValue(TextElement.BackgroundProperty, new SolidColorBrush(Colors.Transparent));
+            if (myTextRange != null)
+                myTextRange.ApplyPropertyValue(TextElement.BackgroundProperty, new SolidColorBrush(Colors.Transparent));
             if (e.Key == Key.Return)
             {
-                textRange = null;
+                myTextRange = null;
                 int startnumber = Convert.ToInt32(startNum.Text);
                 if (!CheckRange(startnumber))
                     MessageBox.Show("Your start position of text is under of range of the text below.");
@@ -269,11 +272,11 @@ namespace WPF_RegistrationFormWithTextEditor
 
         private void endNum_KeyDown(object sender, KeyEventArgs e)
         {
-            if (textRange != null)
-                textRange.ApplyPropertyValue(TextElement.BackgroundProperty, new SolidColorBrush(Colors.Transparent));
+            if (myTextRange != null)
+                myTextRange.ApplyPropertyValue(TextElement.BackgroundProperty, new SolidColorBrush(Colors.Transparent));
             if (e.Key == Key.Return)
             {
-                textRange = null;
+                myTextRange = null;
                 int endnumber = Convert.ToInt32(endNum.Text);
                 if (!CheckRange(endnumber))
                     MessageBox.Show("Your end position of text is under of range of the text below.");
@@ -316,26 +319,66 @@ namespace WPF_RegistrationFormWithTextEditor
 
         private void HighlightingText(int startpos, int endpos)
         {
-            TextPointer startPointer = text_TextBlock.ContentStart.GetPositionAtOffset(startpos);
-            TextPointer endPointer = text_TextBlock.ContentStart.GetPositionAtOffset(endpos);
-            textRange = new TextRange(startPointer, endPointer);
-            textRange.ApplyPropertyValue(TextElement.BackgroundProperty, new SolidColorBrush(Colors.LightGray));
+
+            TextPointer startPointer = text_TextBlock.ContentStart.DocumentStart;
+            this.myTextRange = FindTextInRange(searchRange, GetStringPart()); ;
+            myTextRange.ApplyPropertyValue(TextElement.BackgroundProperty, new SolidColorBrush(Colors.LightGray));
+        }
+
+        private string GetStringPart()
+        {
+            return new TextRange(this.text_TextBlock.ContentStart, this.text_TextBlock.ContentEnd).Text.Substring(Convert.ToInt32(this.startNum.Text), Convert.ToInt32(this.endNum.Text) - Convert.ToInt32(this.startNum.Text) + 1);
+        }
+
+        private TextRange FindTextInRange(TextRange textSearchRange, string textSearch)
+        {
+            int offset = textSearchRange.Text.IndexOf(textSearch, StringComparison.OrdinalIgnoreCase);
+            if (offset < 0)
+            {
+                return null;
+            }
+            TextPointer start = GetTextPositionAtOffset(textSearchRange.Start, offset);
+            TextRange resultTextRange = new TextRange(start, GetTextPositionAtOffset(start, textSearch.Length));
+            return resultTextRange;
+        }
+
+        private TextPointer GetTextPositionAtOffset(TextPointer pointerPosition, int symbolCount)
+        {
+            while (pointerPosition != null)
+            {
+                if (pointerPosition.GetPointerContext(LogicalDirection.Forward) == TextPointerContext.Text)
+                {
+                    int count = pointerPosition.GetTextRunLength(LogicalDirection.Forward);
+                    if (symbolCount <= count)
+                    {
+                        return pointerPosition.GetPositionAtOffset(symbolCount);
+                    }
+                    symbolCount -= count;
+                }
+                TextPointer nextContextPosition = pointerPosition.GetNextContextPosition(LogicalDirection.Forward);
+                if (nextContextPosition == null)
+                {
+                    return pointerPosition;
+                }
+                pointerPosition = nextContextPosition;
+            }
+            return pointerPosition;
         }
 
         private void Bold_Click(object sender, RoutedEventArgs e)
         {
             try
             {
-                if ((FontWeight)textRange.GetPropertyValue(TextElement.FontWeightProperty) == FontWeights.Bold)
-                    textRange.ApplyPropertyValue(TextElement.FontWeightProperty, FontWeights.Normal);
+                if ((FontWeight)myTextRange.GetPropertyValue(TextElement.FontWeightProperty) == FontWeights.Bold)
+                    myTextRange.ApplyPropertyValue(TextElement.FontWeightProperty, FontWeights.Normal);
                 else
                 {
-                    textRange.ApplyPropertyValue(TextElement.FontWeightProperty, FontWeights.Bold);
+                    myTextRange.ApplyPropertyValue(TextElement.FontWeightProperty, FontWeights.Bold);
                 }
             }
             catch (Exception ex)
             {
-                textRange.ApplyPropertyValue(TextElement.FontWeightProperty, FontWeights.Bold);
+                myTextRange.ApplyPropertyValue(TextElement.FontWeightProperty, FontWeights.Bold);
             }
         }
 
@@ -343,14 +386,14 @@ namespace WPF_RegistrationFormWithTextEditor
         {
             try
             {
-                if ((FontStyle)textRange.GetPropertyValue(TextElement.FontStyleProperty) == FontStyles.Italic)
-                    textRange.ApplyPropertyValue(TextElement.FontStyleProperty, FontStyles.Normal);
+                if ((FontStyle)myTextRange.GetPropertyValue(TextElement.FontStyleProperty) == FontStyles.Italic)
+                    myTextRange.ApplyPropertyValue(TextElement.FontStyleProperty, FontStyles.Normal);
                 else
-                    textRange.ApplyPropertyValue(TextElement.FontStyleProperty, FontStyles.Italic);
+                    myTextRange.ApplyPropertyValue(TextElement.FontStyleProperty, FontStyles.Italic);
             }
             catch (Exception ex)
             {
-                textRange.ApplyPropertyValue(TextElement.FontStyleProperty, FontStyles.Italic);
+                myTextRange.ApplyPropertyValue(TextElement.FontStyleProperty, FontStyles.Italic);
             }
         }
 
@@ -358,23 +401,23 @@ namespace WPF_RegistrationFormWithTextEditor
         {
             try
             {
-                if (textRange.GetPropertyValue(TextBlock.TextDecorationsProperty) == TextDecorations.Underline)
-                    textRange.ApplyPropertyValue(TextBlock.TextDecorationsProperty, "None");
+                if (myTextRange.GetPropertyValue(TextBlock.TextDecorationsProperty) == TextDecorations.Underline)
+                    myTextRange.ApplyPropertyValue(TextBlock.TextDecorationsProperty, "None");
                 else
-                    textRange.ApplyPropertyValue(TextBlock.TextDecorationsProperty, TextDecorations.Underline);
+                    myTextRange.ApplyPropertyValue(TextBlock.TextDecorationsProperty, TextDecorations.Underline);
             }
             catch (Exception ex)
             {
-                textRange.ApplyPropertyValue(TextBlock.TextDecorationsProperty, TextDecorations.Underline);
+                myTextRange.ApplyPropertyValue(TextBlock.TextDecorationsProperty, TextDecorations.Underline);
             }
         }
 
         private void Clear_Click(object sender, RoutedEventArgs e)
         {
-            textRange.ApplyPropertyValue(TextElement.FontWeightProperty, FontWeights.Normal);
-            textRange.ApplyPropertyValue(TextElement.FontStyleProperty, FontStyles.Normal);
-            textRange.ApplyPropertyValue(TextElement.FontSizeProperty, "16");
-            textRange.ApplyPropertyValue(TextElement.ForegroundProperty, new SolidColorBrush(Colors.Black));
+            myTextRange.ApplyPropertyValue(TextElement.FontWeightProperty, FontWeights.Normal);
+            myTextRange.ApplyPropertyValue(TextElement.FontStyleProperty, FontStyles.Normal);
+            myTextRange.ApplyPropertyValue(TextElement.FontSizeProperty, "16");
+            myTextRange.ApplyPropertyValue(TextElement.ForegroundProperty, new SolidColorBrush(Colors.Black));
             Size.SelectedIndex = -1;
             color.SelectedIndex = -1;
         }
@@ -382,7 +425,7 @@ namespace WPF_RegistrationFormWithTextEditor
         private void Size_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             if (Size.SelectedIndex != -1)
-                textRange.ApplyPropertyValue(TextElement.FontSizeProperty, (Size.SelectedItem as ComboBoxItem).Content);
+                myTextRange.ApplyPropertyValue(TextElement.FontSizeProperty, (Size.SelectedItem as ComboBoxItem).Content);
         }
 
         private void Color_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -391,25 +434,25 @@ namespace WPF_RegistrationFormWithTextEditor
             switch (color.SelectedIndex)
             {
                 case 0:
-                    textRange.ApplyPropertyValue(TextElement.ForegroundProperty, new SolidColorBrush(Colors.Black));
+                    myTextRange.ApplyPropertyValue(TextElement.ForegroundProperty, new SolidColorBrush(Colors.Black));
                     break;
                 case 1:
-                    textRange.ApplyPropertyValue(TextElement.ForegroundProperty, new SolidColorBrush(Colors.Blue));
+                    myTextRange.ApplyPropertyValue(TextElement.ForegroundProperty, new SolidColorBrush(Colors.Blue));
                     break;
                 case 2:
-                    textRange.ApplyPropertyValue(TextElement.ForegroundProperty, new SolidColorBrush(Colors.Green));
+                    myTextRange.ApplyPropertyValue(TextElement.ForegroundProperty, new SolidColorBrush(Colors.Green));
                     break;
                 case 3:
-                    textRange.ApplyPropertyValue(TextElement.ForegroundProperty, new SolidColorBrush(Colors.Orange));
+                    myTextRange.ApplyPropertyValue(TextElement.ForegroundProperty, new SolidColorBrush(Colors.Orange));
                     break;
                 case 4:
-                    textRange.ApplyPropertyValue(TextElement.ForegroundProperty, new SolidColorBrush(Colors.Purple));
+                    myTextRange.ApplyPropertyValue(TextElement.ForegroundProperty, new SolidColorBrush(Colors.Purple));
                     break;
                 case 5:
-                    textRange.ApplyPropertyValue(TextElement.ForegroundProperty, new SolidColorBrush(Colors.Red));
+                    myTextRange.ApplyPropertyValue(TextElement.ForegroundProperty, new SolidColorBrush(Colors.Red));
                     break;
                 case 6:
-                    textRange.ApplyPropertyValue(TextElement.ForegroundProperty, new SolidColorBrush(Colors.Yellow));
+                    myTextRange.ApplyPropertyValue(TextElement.ForegroundProperty, new SolidColorBrush(Colors.Yellow));
                     break;
                 default:
                     break;
